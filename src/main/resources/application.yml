@@ -1,0 +1,28 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/banking_system_db}
+    username: ${DB_USERNAME:banking}
+    password: ${DB_PASSWORD:banking}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:replace_with_secure_secret_min_32_chars_long_please}
+    expiration-ms: ${JWT_EXPIRATION:86400000}
+
+logging:
+  level:
+    com.example.banking: INFO

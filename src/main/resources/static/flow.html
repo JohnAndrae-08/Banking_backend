@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Banking System — Live Backend Data Flow</title>
+<link rel="stylesheet" href="/flow.css" />
+</head>
+<body>
+<header class="topbar">
+  <div>
+    <h1>Banking System <span class="accent">— Live Backend Data Flow</span></h1>
+    <p class="subtitle">CLIENT → CONTROLLER → SERVICE → REPOSITORY → SQL → DATABASE → RESPONSE · real backend events over SSE</p>
+  </div>
+  <div class="status-chips">
+    <div class="chip" id="chip-backend"><span class="dot"></span><span id="chip-backend-text">BACKEND …</span></div>
+    <div class="chip" id="chip-db"><span class="dot"></span><span id="chip-db-text">DATABASE …</span></div>
+    <div class="chip" id="chip-api"><span class="dot"></span><span id="chip-api-text">API …</span></div>
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <h2>1 · Architecture overview</h2>
+    <div class="arch">
+      <div class="arch-node">API CLIENT</div><div class="arch-arrow">↓</div>
+      <div class="arch-node">REST CONTROLLER</div><div class="arch-arrow">↓</div>
+      <div class="arch-node">SERVICE LAYER</div><div class="arch-arrow">↓</div>
+      <div class="arch-node">REPOSITORY (JdbcTemplate)</div><div class="arch-arrow">↓</div>
+      <div class="arch-node mono">SQL QUERY</div><div class="arch-arrow">↓</div>
+      <div class="arch-node">POSTGRESQL DATABASE</div>
+    </div>
+    <p class="hint">Live execution events are highlighted below as requests move through the backend. Kafka-free: Server-Sent Events on <code>/api/monitor/events</code>.</p>
+  </section>
+
+  <section class="card">
+    <h2>2 · Live workflow <span id="live-badge" class="badge">LIVE</span></h2>
+    <div class="pipeline" id="pipeline">
+      <div class="node" data-layer="CLIENT"><h3>API CLIENT</h3><p class="sub" data-sub>waiting</p><span class="state" data-state>IDLE</span></div>
+      <div class="node" data-layer="AUTH"><h3>AUTH / JWT</h3><p class="sub" data-sub>waiting</p><span class="state" data-state>IDLE</span></div>
+      <div class="node" data-layer="CONTROLLER"><h3>CONTROLLER</h3><p class="sub" data-sub>waiting</p><span class="state" data-state>IDLE</span></div>
+      <div class="node" data-layer="SERVICE"><h3>SERVICE</h3><p class="sub" data-sub>waiting</p><span class="state" data-state>IDLE</span></div>
+      <div class="node" data-layer="REPOSITORY"><h3>REPOSITORY</h3><p class="sub" data-sub>waiting</p><span class="state" data-state>IDLE</span></div>
+      <div class="node" data-layer="SQL"><h3>SQL QUERY</h3><p class="sub mono" data-sub>—</p><span class="state" data-state>IDLE</span></div>
+      <div class="node" data-layer="DATABASE"><h3>DATABASE</h3><p class="sub" data-sub>waiting</p><span class="state" data-state>IDLE</span></div>
+      <div class="node wide" data-layer="TRANSACTION"><h3>TRANSACTION</h3><p class="sub" data-sub>no active transaction</p><span class="state" data-state>IDLE</span></div>
+    </div>
+    <div id="tx-banner" class="tx-banner hidden"></div>
+  </section>
+
+  <div class="grid-2">
+    <section class="card">
+      <h2>3 · Request inspector</h2>
+      <dl class="kv" id="inspector">
+        <div><dt>Request ID</dt><dd id="in-req">—</dd></div>
+        <div><dt>Method</dt><dd id="in-method">—</dd></div>
+        <div><dt>Endpoint</dt><dd id="in-endpoint" class="mono">—</dd></div>
+        <div><dt>Operation</dt><dd id="in-op">—</dd></div>
+        <div><dt>Authenticated</dt><dd id="in-auth">—</dd></div>
+        <div><dt>Status</dt><dd id="in-status">—</dd></div>
+        <div><dt>Duration</dt><dd id="in-dur">—</dd></div>
+      </dl>
+    </section>
+    <section class="card">
+      <h2>4 · SQL inspector</h2>
+      <pre id="sql-box" class="sql">No SQL captured yet. Trigger a request (login, deposit, transfer…) and the real repository SQL appears here.</pre>
+      <h2 class="sub-h">Database / tables</h2>
+      <div class="tables">
+        <div class="table" data-table="users"><b>USERS</b><span>id · username · email · role · status</span></div>
+        <div class="table" data-table="customers"><b>CUSTOMERS</b><span>id · user_id · first_name · last_name</span></div>
+        <div class="table" data-table="accounts"><b>ACCOUNTS</b><span>id · account_number · balance · status</span></div>
+        <div class="table" data-table="transactions"><b>TRANSACTIONS</b><span>id · reference_number · type · amount</span></div>
+      </div>
+      <p class="hint" id="db-meta">Probing database status…</p>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>5 · Live backend events</h2>
+    <div class="controls">
+      <button id="btn-pause">Pause</button>
+      <button id="btn-clear">Clear</button>
+      <button id="btn-refresh">Refresh status</button>
+      <label class="chk"><input type="checkbox" id="chk-scroll" checked /> Auto-scroll</label>
+      <select id="sel-filter">
+        <option value="ALL">ALL</option>
+        <option value="AUTH">AUTH</option>
+        <option value="CONTROLLER">CONTROLLER</option>
+        <option value="SERVICE">SERVICE</option>
+        <option value="REPOSITORY">REPOSITORY</option>
+        <option value="SQL">SQL</option>
+        <option value="DATABASE">DATABASE</option>
+        <option value="TRANSACTION">TRANSACTION</option>
+        <option value="ERROR">ERROR</option>
+      </select>
+      <input id="search" type="search" placeholder="Filter endpoint / request ID…" />
+    </div>
+    <ol id="events" class="events"></ol>
+  </section>
+
+  <div class="grid-2">
+    <section class="card">
+      <h2>6 · API activity</h2>
+      <table class="activity">
+        <thead><tr><th>TIME</th><th>METHOD</th><th>ENDPOINT</th><th>STATUS</th><th>DURATION</th><th>MODE</th></tr></thead>
+        <tbody id="activity-body"><tr><td colspan="6" class="muted">No API calls observed yet.</td></tr></tbody>
+      </table>
+    </section>
+    <section class="card">
+      <h2>7 · Demo requests <span class="muted-sm">(calls the real API)</span></h2>
+      <label>JWT (from login)<input id="demo-token" type="text" placeholder="Bearer token (paste without 'Bearer ')" autocomplete="off" /></label>
+      <div class="demo-row">
+        <button data-demo="login">1 · Login (fills token)</button>
+        <button data-demo="deposit">2 · Deposit 1000</button>
+        <button data-demo="withdraw">3 · Withdraw 200</button>
+        <button data-demo="transfer">4 · Transfer 100</button>
+        <button data-demo="balance">5 · Balance</button>
+      </div>
+      <div class="demo-grid">
+        <label>Username/email<input id="demo-user" value="demo_student" /></label>
+        <label>Password<input id="demo-pass" type="password" value="Password123!" /></label>
+        <label>Account ID<input id="demo-acct" value="1" /></label>
+        <label>Amount<input id="demo-amt" value="1000" /></label>
+        <label>Source acct #<input id="demo-src" value="" placeholder="e.g. 1000000001" /></label>
+        <label>Dest acct #<input id="demo-dst" value="" placeholder="e.g. 1000000002" /></label>
+      </div>
+      <pre id="demo-out" class="sql">Demo output appears here. Watch the pipeline above light up with REAL backend events.</pre>
+      <p class="hint">Demo calls the existing REST endpoints — no duplicated business logic. Sensitive values are masked in events.</p>
+    </div>
+  </section>
+</main>
+
+<footer><span>Banking System · educational visualizer · SSE: <code>/api/monitor/events</code> · UI: <code>/flow.html</code></span></footer>
+<script src="/flow.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+target/
+*.log
+app-out.txt
+app-err.txt
+*.class
+.idea/
+*.iml
+.vscode/
+.env
+.env.*.local
+.kilo/
+.DS_Store
